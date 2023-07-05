@@ -2,7 +2,10 @@
 
 ## Summary
 
-Short summary on functionality and used technologies.
+Azure Durable Functions Status SPFX webpart.
+
+This solution mimics the Durable Functions Monitor but is implemented as a SharePoint SPFx Webpart.
+
 
 [picture of the solution in action, if possible]
 
@@ -16,6 +19,7 @@ Short summary on functionality and used technologies.
 - [Microsoft 365 tenant](https://docs.microsoft.com/en-us/sharepoint/dev/spfx/set-up-your-developer-tenant)
 
 > Get your own free development tenant by subscribing to [Microsoft 365 developer program](http://aka.ms/o365devprogram)
+
 
 ## Prerequisites
 

@@ -43,7 +43,7 @@ export default function DurableFunctionsStatus(props: IDurableFunctionsStatusPro
   };
   const renderDate = (date: Date) => {
 
-    return format(utcToZonedTime(date, Intl.DateTimeFormat().resolvedOptions().timeZone), 'yyyy-MM-dd HH:mm:ss(XX)');
+    return format(utcToZonedTime(date, Intl.DateTimeFormat().resolvedOptions().timeZone), 'yyyy-MM-dd HH:mm:ss');
 
   };
   const renderDateColumn = (item?: any, index?: number, column?: IColumn) => {
@@ -52,11 +52,53 @@ export default function DurableFunctionsStatus(props: IDurableFunctionsStatusPro
       // return format(utcToZonedTime(item[column.fieldName], Intl.DateTimeFormat().resolvedOptions().timeZone), 'yyyy-MM-dd HH:mm:ss(XX)');
     }
   };
-  const renderDuration = (item?: any, index?: number, column?: IColumn) => {
+  const zeroPad = (num:number) => {
+    //padstart in rs2016
+    const temp=num.toString();
+    if(temp.length ==2 ) {return temp;}else{
+      return "0"+temp;
+    }
+    
+   
+}
+  const renderInstanceDuration = (item?: any, index?: number, column?: IColumn) => {
     debugger;
-    var duration = item.createdTime - item.lastUpdatedTime;
+
     if (item.createdTime && item.lastUpdatedTime) {
-      return formatDuration(intervalToDuration({ start: new Date(item.createdTime), end: new Date(item.lastUpdatedTime) }))
+      const duration = intervalToDuration({
+        start: new Date(item.createdTime),
+        end: new Date(item.lastUpdatedTime)
+      });
+      const formatted = [
+        duration.hours,
+        duration.minutes,
+        duration.seconds,
+      ]
+         .map(zeroPad)
+        .join(':')
+        return formatted;
+      //return formatDuration(intervalToDuration({ start: new Date(item.createdTime), end: new Date(item.lastUpdatedTime) }))
+    }
+    // return format(utcToZonedTime(item[column.fieldName], Intl.DateTimeFormat().resolvedOptions().timeZone), 'yyyy-MM-dd HH:mm:ss(XX)');
+
+  };
+  const renderActivityDuration = (item?: any, index?: number, column?: IColumn) => {
+    debugger;
+
+    if (item.ScheduledTime && item.Timestamp) {
+      const duration = intervalToDuration({
+        start: new Date(item.ScheduledTime),
+        end: new Date(item.Timestamp)
+      });
+      const formatted = [
+        duration.hours,
+        duration.minutes,
+        duration.seconds,
+      ]
+         .map(zeroPad)
+        .join(':')
+        return formatted;
+      //return formatDuration(intervalToDuration({ start: new Date(item.createdTime), end: new Date(item.lastUpdatedTime) }))
     }
     // return format(utcToZonedTime(item[column.fieldName], Intl.DateTimeFormat().resolvedOptions().timeZone), 'yyyy-MM-dd HH:mm:ss(XX)');
 
@@ -64,7 +106,7 @@ export default function DurableFunctionsStatus(props: IDurableFunctionsStatusPro
   const instancesCols: IColumn[] = [
     {
       name: 'Instance Id',
-      minWidth: 200,
+      minWidth: 230,
       key: 'instanceId',
       fieldName: 'instanceId',
       isResizable: true,
@@ -78,7 +120,7 @@ export default function DurableFunctionsStatus(props: IDurableFunctionsStatusPro
       isResizable: true,
     }, {
       name: 'Created',
-      minWidth: 200,
+      minWidth: 110,
       key: 'createdTime',
       fieldName: 'createdTime',
       onRender: renderDateColumn,
@@ -86,7 +128,7 @@ export default function DurableFunctionsStatus(props: IDurableFunctionsStatusPro
     },
     {
       name: 'Last Updated',
-      minWidth: 200,
+      minWidth: 110,
       key: 'lastUpdatedTime',
       fieldName: 'lastUpdatedTime',
       onRender: renderDateColumn,
@@ -94,10 +136,10 @@ export default function DurableFunctionsStatus(props: IDurableFunctionsStatusPro
     },
     {
       name: 'Duration',
-      minWidth: 200,
+      minWidth: 60,
       key: 'Duration',
       fieldName: 'Duration',
-      onRender: renderDuration,
+      onRender: renderInstanceDuration,
       isResizable: true,
     },
     {
@@ -133,7 +175,7 @@ export default function DurableFunctionsStatus(props: IDurableFunctionsStatusPro
   const historyCols: IColumn[] = [
     {
       name: 'EventType',
-      minWidth: 200,
+      minWidth: 100,
       key: 'EventType',
       fieldName: 'EventType',
       isResizable: true,
@@ -145,12 +187,30 @@ export default function DurableFunctionsStatus(props: IDurableFunctionsStatusPro
       key: 'FunctionName',
       fieldName: 'FunctionName',
       isResizable: true,
-    }, {
+    }, 
+    {
+      name: 'ScheduledTime',
+      minWidth: 110,
+      key: 'ScheduledTime',
+      fieldName: 'ScheduledTime',
+      onRender: renderDateColumn,
+      isResizable: true,
+    },
+    {
       name: 'Timestamp',
-      minWidth: 200,
+      minWidth: 110,
       key: 'Timestamp',
       fieldName: 'Timestamp',
       onRender: renderDateColumn,
+      isResizable: true,
+    },
+
+    {
+      name: 'Duration',
+      minWidth: 60,
+      key: 'Duration',
+      fieldName: 'Duration',
+      onRender: renderActivityDuration,
       isResizable: true,
     },
     {
@@ -162,7 +222,7 @@ export default function DurableFunctionsStatus(props: IDurableFunctionsStatusPro
     },
     {
       name: 'ScheduledTime',
-      minWidth: 200,
+      minWidth: 110,
       key: 'ScheduledTime',
       fieldName: 'ScheduledTime',
       onRender: renderDateColumn,
@@ -247,6 +307,11 @@ export default function DurableFunctionsStatus(props: IDurableFunctionsStatusPro
             <TextField label='Created Time' value={renderDate(selectedInstance.createdTime)}></TextField>
             <TextField label='Last Updated Time' value={renderDate(selectedInstance.lastUpdatedTime)}></TextField>
             <TextField label='Runtime Status' value={selectedInstance.runtimeStatus}></TextField>
+
+            <TextField className={styles.gridFullWidth} label='Output' value={selectedInstance.output}
+              multiline={true}
+            ></TextField>
+
           </div>
           <DetailsList items={selectedInstance.historyEvents} columns={historyCols} />
         </div>

@@ -13,6 +13,9 @@
   display: grid;
   grid-template-columns: auto auto auto;
 }
+.gridFullWidth{
+  grid-column: 1 / span 3;
+}
 .welcome {
   text-align: center;
 }

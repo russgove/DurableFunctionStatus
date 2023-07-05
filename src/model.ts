@@ -4,7 +4,7 @@ export interface IInstance{
     runtimeStatus:string;
     input:string;
     customStatus:string;
-    output:Array<string>;
+    output:string;
     createdTime:Date;
     lastUpdatedTime:Date;
     historyEvents?:Array<IHistoryEvent>

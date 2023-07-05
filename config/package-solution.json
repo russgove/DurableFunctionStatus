@@ -3,7 +3,7 @@
   "solution": {
     "name": "durable-function-status-client-side-solution",
     "id": "90c56f7f-2600-4dd2-b5ba-501d3b9773c0",
-    "version": "1.0.0.0",
+    "version": "1.1.0.0",
     "includeClientSideAssets": true,
     "skipFeatureDeployment": true,
     "isDomainIsolated": false,

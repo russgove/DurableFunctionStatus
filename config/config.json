@@ -1,0 +1,18 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/spfx-build/config.2.0.schema.json",
+  "version": "2.0",
+  "bundles": {
+    "durable-functions-status-web-part": {
+      "components": [
+        {
+          "entrypoint": "./lib/webparts/durableFunctionsStatus/DurableFunctionsStatusWebPart.js",
+          "manifest": "./src/webparts/durableFunctionsStatus/DurableFunctionsStatusWebPart.manifest.json"
+        }
+      ]
+    }
+  },
+  "externals": {},
+  "localizedResources": {
+    "DurableFunctionsStatusWebPartStrings": "lib/webparts/durableFunctionsStatus/loc/{locale}.js"
+  }
+}

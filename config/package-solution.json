@@ -1,0 +1,40 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/spfx-build/package-solution.schema.json",
+  "solution": {
+    "name": "durable-function-status-client-side-solution",
+    "id": "90c56f7f-2600-4dd2-b5ba-501d3b9773c0",
+    "version": "1.0.0.0",
+    "includeClientSideAssets": true,
+    "skipFeatureDeployment": true,
+    "isDomainIsolated": false,
+    "developer": {
+      "name": "",
+      "websiteUrl": "",
+      "privacyUrl": "",
+      "termsOfUseUrl": "",
+      "mpnId": "Undefined-1.17.1"
+    },
+    "metadata": {
+      "shortDescription": {
+        "default": "durable-function-status description"
+      },
+      "longDescription": {
+        "default": "durable-function-status description"
+      },
+      "screenshotPaths": [],
+      "videoUrl": "",
+      "categories": []
+    },
+    "features": [
+      {
+        "title": "durable-function-status Feature",
+        "description": "The feature that activates elements of the durable-function-status solution.",
+        "id": "7cc3e3f5-3225-437b-b501-e7be93582016",
+        "version": "1.0.0.0"
+      }
+    ]
+  },
+  "paths": {
+    "zippedPackage": "solution/durable-function-status.sppkg"
+  }
+}

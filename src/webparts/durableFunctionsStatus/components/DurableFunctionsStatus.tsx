@@ -1,6 +1,6 @@
 import * as React from 'react';
 import { useState, useEffect } from 'react';
-import { IInstance } from '../../../model'
+import { IHistoryEvent, IInstance } from '../../../model'
 import styles from './DurableFunctionsStatus.module.scss';
 import { IDurableFunctionsStatusProps } from './IDurableFunctionsStatusProps';
 import { escape } from '@microsoft/sp-lodash-subset';
@@ -18,25 +18,8 @@ export default function DurableFunctionsStatus(props: IDurableFunctionsStatusPro
 
   const renderInstanceId = (item?: any, index?: number, column?: IColumn) => {
     return <Link onClick={(ev: React.MouseEvent<unknown>) => {
-      const url = `${baseUrl}/runtime/webhooks/durableTask/instances/${item.instanceId}?taskHub=${taskHub}&code=${systemKey}&showHistory=true&showHistoryOutput=true&showInput=true`;
-      httpClient.fetch(url, HttpClient.configurations.v1, {
-        headers: { "Accept": "application/json" }
-      })
-        .then(resp => {
-
-
-          resp.json().then(x => {
-
-            setSelectedInstance(x);
-          }).catch(e => {
-            debugger;
-          })
-
-        })
-        .catch(e => {
-          debugger;
-        })
-    }}>
+      fetchInstance(item.instanceId);
+    }}    >
 
       {item.instanceId}</Link>;
 
@@ -52,17 +35,28 @@ export default function DurableFunctionsStatus(props: IDurableFunctionsStatusPro
       // return format(utcToZonedTime(item[column.fieldName], Intl.DateTimeFormat().resolvedOptions().timeZone), 'yyyy-MM-dd HH:mm:ss(XX)');
     }
   };
-  const zeroPad = (num:number) => {
-    //padstart in rs2016
-    const temp=num.toString();
-    if(temp.length ==2 ) {return temp;}else{
-      return "0"+temp;
-    }
-    
-   
-}
-  const renderInstanceDuration = (item?: any, index?: number, column?: IColumn) => {
+  const renderHistoryName = (item?: IHistoryEvent, index?: number, column?: IColumn) => {
     debugger;
+    if (item.EventType === "TaskScheduled") {
+      return item.Name;
+    }
+    else {
+      return item.FunctionName;
+    }
+    // return format(utcToZonedTime(item[column.fieldName], Intl.DateTimeFormat().resolvedOptions().timeZone), 'yyyy-MM-dd HH:mm:ss(XX)');
+  }
+
+  const zeroPad = (num: number) => {
+    //padstart in rs2016
+    const temp = num.toString();
+    if (temp.length == 2) { return temp; } else {
+      return "0" + temp;
+    }
+
+
+  }
+  const renderInstanceDuration = (item?: any, index?: number, column?: IColumn) => {
+
 
     if (item.createdTime && item.lastUpdatedTime) {
       const duration = intervalToDuration({
@@ -74,17 +68,15 @@ export default function DurableFunctionsStatus(props: IDurableFunctionsStatusPro
         duration.minutes,
         duration.seconds,
       ]
-         .map(zeroPad)
+        .map(zeroPad)
         .join(':')
-        return formatted;
+      return formatted;
       //return formatDuration(intervalToDuration({ start: new Date(item.createdTime), end: new Date(item.lastUpdatedTime) }))
     }
     // return format(utcToZonedTime(item[column.fieldName], Intl.DateTimeFormat().resolvedOptions().timeZone), 'yyyy-MM-dd HH:mm:ss(XX)');
 
   };
   const renderActivityDuration = (item?: any, index?: number, column?: IColumn) => {
-    debugger;
-
     if (item.ScheduledTime && item.Timestamp) {
       const duration = intervalToDuration({
         start: new Date(item.ScheduledTime),
@@ -95,9 +87,9 @@ export default function DurableFunctionsStatus(props: IDurableFunctionsStatusPro
         duration.minutes,
         duration.seconds,
       ]
-         .map(zeroPad)
+        .map(zeroPad)
         .join(':')
-        return formatted;
+      return formatted;
       //return formatDuration(intervalToDuration({ start: new Date(item.createdTime), end: new Date(item.lastUpdatedTime) }))
     }
     // return format(utcToZonedTime(item[column.fieldName], Intl.DateTimeFormat().resolvedOptions().timeZone), 'yyyy-MM-dd HH:mm:ss(XX)');
@@ -182,12 +174,12 @@ export default function DurableFunctionsStatus(props: IDurableFunctionsStatusPro
 
     },
     {
-      name: 'FunctionName',
+      name: 'Name',
       minWidth: 200,
-      key: 'FunctionName',
-      fieldName: 'FunctionName',
-      isResizable: true,
-    }, 
+      key: 'Name',
+      fieldName: 'Name',
+      isResizable: true, onRender: renderHistoryName
+    },
     {
       name: 'ScheduledTime',
       minWidth: 110,
@@ -265,32 +257,6 @@ export default function DurableFunctionsStatus(props: IDurableFunctionsStatusPro
 
   }, [])
 
-  // useEffect(() => {
-  //   debugger;
-  //   const fetchData = async () => {
-  //     const url = `${baseUrl}/runtime/webhooks/durableTask/instances/${selectedInstanceId}?taskHub=${taskHub}&code=${systemKey}&showHistory=true&showHistoryOutput=true&showInput=true`;
-  //     props.httpClient.fetch(url, HttpClient.configurations.v1, {
-  //       headers: { "Accept": "application/json" }
-  //     })
-  //       .then(resp => {
-
-
-  //         resp.json().then(x => {
-  //           debugger;
-  //           setSelectedInstance(x);
-  //         }).catch(e => {
-  //           debugger;
-  //         })
-
-  //       })
-  //       .catch(e => {
-  //         debugger;
-  //       })
-  //   }
-
-  //   fetchData();
-
-  // }, [selectedInstanceId]);
   debugger;
   return (
     <section>
@@ -300,6 +266,9 @@ export default function DurableFunctionsStatus(props: IDurableFunctionsStatusPro
           <PrimaryButton onClick={(e) => {
             setSelectedInstance(null);
           }}>Back</PrimaryButton>
+          <PrimaryButton onClick={(e) => {
+            fetchInstance(selectedInstance.instanceId);
+          }}>Refresh</PrimaryButton>
           <div className={styles.grid}>
 
             <TextField label='Instance Id' value={selectedInstance.instanceId}></TextField>
@@ -307,7 +276,7 @@ export default function DurableFunctionsStatus(props: IDurableFunctionsStatusPro
             <TextField label='Created Time' value={renderDate(selectedInstance.createdTime)}></TextField>
             <TextField label='Last Updated Time' value={renderDate(selectedInstance.lastUpdatedTime)}></TextField>
             <TextField label='Runtime Status' value={selectedInstance.runtimeStatus}></TextField>
-
+            <TextField label='Custom Status' value={selectedInstance.customStatus}></TextField>
             <TextField className={styles.gridFullWidth} label='Output' value={selectedInstance.output}
               multiline={true}
             ></TextField>
@@ -327,5 +296,26 @@ export default function DurableFunctionsStatus(props: IDurableFunctionsStatusPro
       }
     </section>
   );
+
+  function fetchInstance(instanceId: string) {
+    const url = `${baseUrl}/runtime/webhooks/durableTask/instances/${instanceId}?taskHub=${taskHub}&code=${systemKey}&showHistory=true&showHistoryOutput=true&showInput=true`;
+    httpClient.fetch(url, HttpClient.configurations.v1, {
+      headers: { "Accept": "application/json" }
+    })
+      .then(resp => {
+
+
+        resp.json().then(instance => {
+          debugger;
+          setSelectedInstance(instance);
+        }).catch(e => {
+          debugger;
+        });
+
+      })
+      .catch(e => {
+        debugger;
+      });
+  }
 }
 

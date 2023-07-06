@@ -13,6 +13,7 @@ export interface IHistoryEvent{
     Correlation:string;
     EventType:string;
     FunctionName:string;
+    Name:string;
     Generation:number;
     Input:string;
     Result:string;

@@ -13,40 +13,69 @@ import { format, formatDuration, intervalToDuration } from 'date-fns';
 import { utcToZonedTime } from 'date-fns-tz';
 
 export default function DurableFunctionsStatus(props: IDurableFunctionsStatusProps): JSX.Element {
+  //#region "Hooks"
   const [selectedInstance, setSelectedInstance] = React.useState<IInstance>(null);
   const [instances, setInstances] = useState<Array<IInstance>>([])
-  const [refreshSeconds, setRefreshSeconds] = useState<number>(null);
-  const [refreshDescription, setRefreshDescription] = useState<string>(null);
-  const instanceIntervalRef = useRef<number | null>(null);
+  const [refreshSelectedInstanceSeconds, setRefreshSelectedInstanceSeconds] = useState<number>(null);
+  const [refreshSelectedInstanceDescription, setRefreshSelectedInstanceDescription] = useState<string>(null);
+  const selectedInstanceIntervalRef = useRef<number | null>(null);
+  const [refreshInstancesSeconds, setRefreshInstancesSeconds] = useState<number>(null);
+  const [refreshInstancesDescription, setRefreshInstancesDescription] = useState<string>(null);
+  const instancesIntervalRef = useRef<number | null>(null);
+  useEffect(() => { fetchInstancesData(); }, [])
+
+  //#endregion "Hooks"
+
+  //#region Timer functions
   //* See https://www.kindacode.com/article/react-typescript-setinterval/
-// Start the interval
-const startInstanceInterval = (seconds:number) => {
-  if (instanceIntervalRef.current !== null) stopInstanceInterval();
-  instanceIntervalRef.current = window.setInterval(() => {
-    fetchInstance(selectedInstance.instanceId)
-  }, seconds*1000);
-};
+  // Start the interval
+  const startSelectedInstanceInterval = (seconds: number) => {
+    if (selectedInstanceIntervalRef.current !== null) stopSelectedInstanceInterval();
+    selectedInstanceIntervalRef.current = window.setInterval(() => {
+      fetchSelectedInstance(selectedInstance.instanceId)
+    }, seconds * 1000);
+  };
 
-// Stop the interval
-const stopInstanceInterval = () => {
-  if (instanceIntervalRef.current) {
-    window.clearInterval(instanceIntervalRef.current);
-    instanceIntervalRef.current = null;
-  }
-};
-
-// Use the useEffect hook to cleanup the interval when the component unmounts
-useEffect(() => {
-  // here's the cleanup function
-  return () => {
-    if (instanceIntervalRef.current !== null) {
-      window.clearInterval(instanceIntervalRef.current);
+  // Stop the interval
+  const stopSelectedInstanceInterval = () => {
+    if (selectedInstanceIntervalRef.current) {
+      window.clearInterval(selectedInstanceIntervalRef.current);
+      selectedInstanceIntervalRef.current = null;
     }
   };
-}, []);
+  const startInstancesInterval = (seconds: number) => {
+    if (instancesIntervalRef.current !== null) stopInstancesInterval();
+    instancesIntervalRef.current = window.setInterval(() => {
+      fetchInstancesData()
+    }, seconds * 1000);
+  };
+
+  // Stop the interval
+  const stopInstancesInterval = () => {
+    if (instancesIntervalRef.current) {
+      window.clearInterval(instancesIntervalRef.current);
+      instancesIntervalRef.current = null;
+    }
+  };
+
+
+  // Use the useEffect hook to cleanup the interval when the component unmounts
+  useEffect(() => {
+    // here's the cleanup function
+    return () => {
+      if (selectedInstanceIntervalRef.current !== null) {
+        window.clearInterval(selectedInstanceIntervalRef.current);
+        window.clearInterval(instancesIntervalRef.current);
+      }
+    };
+  }, []);
+
+  //#endregion Timer functions
+  //#region Render methods
+
   const renderInstanceId = (item?: any, index?: number, column?: IColumn) => {
     return <Link onClick={(ev: React.MouseEvent<unknown>) => {
-      fetchInstance(item.instanceId);
+      fetchSelectedInstance(item.instanceId);
     }}    >
 
       {item.instanceId}</Link>;
@@ -123,6 +152,8 @@ useEffect(() => {
     // return format(utcToZonedTime(item[column.fieldName], Intl.DateTimeFormat().resolvedOptions().timeZone), 'yyyy-MM-dd HH:mm:ss(XX)');
 
   };
+  //#endregion Render methods
+  //#region data 
   const instancesCols: IColumn[] = [
     {
       name: 'Instance Id',
@@ -192,6 +223,79 @@ useEffect(() => {
     },
 
   ]
+  const instanceCmds: ICommandBarItemProps[] = [
+
+    {
+      name: `Auto Refresh ${refreshInstancesDescription ? refreshInstancesDescription : ''}`,
+      key: 'Name',
+      subMenuProps: {
+        items: [
+          {
+            name: "Never", key: "never",
+            checked: refreshInstancesSeconds === null,
+            canCheck: true,
+            onClick: () => {
+              setRefreshInstancesSeconds(null);
+              setRefreshInstancesDescription(null);
+            }
+          },
+          {
+            name: "Every 5 Seconds", key: "Every 5 Seconds",
+            checked: refreshInstancesSeconds === 5,
+            canCheck: true,
+            onClick: () => {
+              setRefreshInstancesSeconds(5);
+              startInstancesInterval(5);
+              setRefreshInstancesDescription("(Every 5 Seconds)")
+            }
+          },
+          {
+            name: "Every 30 Seconds", key: "Every 30 Seconds",
+            checked: refreshInstancesSeconds === 30,
+            canCheck: true,
+
+            onClick: () => {
+              setRefreshInstancesSeconds(30);
+              startInstancesInterval(30);
+              setRefreshInstancesDescription("(Every 30 Seconds)")
+            }
+          },
+          {
+            name: "Every Minute", key: "Every Minute",
+            checked: refreshInstancesSeconds === 60,
+            canCheck: true,
+            onClick: () => {
+              setRefreshInstancesSeconds(60);
+              startInstancesInterval(60);
+              setRefreshInstancesDescription("(Every Minute)")
+            }
+          }
+        ]
+      }
+    },
+    {
+      name: 'Refresh',
+      key: 'ScheduledTime',
+      iconProps: { iconName: 'Refresh' },
+      onClick: (ev?: React.MouseEvent<HTMLElement, MouseEvent> | React.KeyboardEvent<HTMLElement> | undefined) => {
+        fetchInstancesData();
+      }
+    },
+    {
+      name: 'Purge History',
+      key: 'Purge',
+      iconProps: { iconName: 'Delete' },
+      onClick: (ev?: React.MouseEvent<HTMLElement, MouseEvent> | React.KeyboardEvent<HTMLElement> | undefined) => {
+      }
+    },
+    {
+      name: 'Start New Orchestration',
+      key: 'Terminate',
+      iconProps: { iconName: 'Add' },
+      onClick: (ev?: React.MouseEvent<HTMLElement, MouseEvent> | React.KeyboardEvent<HTMLElement> | undefined) => {
+      }
+    },
+  ]
   const historyCols: IColumn[] = [
     {
       name: 'EventType',
@@ -254,130 +358,164 @@ useEffect(() => {
   const historyCmds: ICommandBarItemProps[] = [
 
     {
-      name: `Auto Refresh ${refreshDescription?refreshDescription:''}`,
-      minWidth: 200,
+      name: `Auto Refresh ${refreshSelectedInstanceDescription ? refreshSelectedInstanceDescription : ''}`,
       key: 'Name',
-      fieldName: 'Name',
-      checked:refreshSeconds !==null,
-      canCheck:true,
-
-      isResizable: true,
+      checked: refreshSelectedInstanceSeconds !== null,
+      canCheck: true,
       subMenuProps: {
         items: [
           {
             name: "Never", key: "never",
             onClick: () => {
-              setRefreshSeconds(null);
-            
-              setRefreshDescription(null);
+              setRefreshSelectedInstanceSeconds(null);
+              setRefreshSelectedInstanceDescription(null);
             }
           },
           {
             name: "Every 5 Seconds", key: "Every 5 Seconds",
-            checked:refreshSeconds===5,
-            canCheck:true,
+            checked: refreshSelectedInstanceSeconds === 5,
+            canCheck: true,
             onClick: () => {
-              setRefreshSeconds(5);
-              startInstanceInterval(5);
-              setRefreshDescription("(Every 5 Seconds)")
+              setRefreshSelectedInstanceSeconds(5);
+              startSelectedInstanceInterval(5);
+              setRefreshSelectedInstanceDescription("(Every 5 Seconds)")
             }
           },
-          { name: "Every 30 Seconds", key: "Every 30 Seconds",
-          checked:refreshSeconds===30,
-          canCheck:true,
+          {
+            name: "Every 30 Seconds", key: "Every 30 Seconds",
+            checked: refreshSelectedInstanceSeconds === 30,
+            canCheck: true,
 
-          onClick: () => {
-            setRefreshSeconds(30);
-            startInstanceInterval(30);
-            setRefreshDescription("(Every 30 Seconds)")
-          } },
-          { name: "Every Minute", key: "Every Minute",
-          checked:refreshSeconds===60,
-          canCheck:true,
-
-          onClick: () => {
-            setRefreshSeconds(60);
-            startInstanceInterval(60);
-            setRefreshDescription("(Every Minute)")
-          } }
-
+            onClick: () => {
+              setRefreshSelectedInstanceSeconds(30);
+              startSelectedInstanceInterval(30);
+              setRefreshSelectedInstanceDescription("(Every 30 Seconds)")
+            }
+          },
+          {
+            name: "Every Minute", key: "Every Minute",
+            checked: refreshSelectedInstanceSeconds === 60,
+            canCheck: true,
+            onClick: () => {
+              setRefreshSelectedInstanceSeconds(60);
+              startSelectedInstanceInterval(60);
+              setRefreshSelectedInstanceDescription("(Every Minute)")
+            }
+          }
         ]
       }
     },
     {
       name: 'Refresh',
-      minWidth: 110,
       key: 'ScheduledTime',
-      fieldName: 'ScheduledTime',
       iconProps: { iconName: 'Refresh' },
-      isResizable: true,
       onClick: (ev?: React.MouseEvent<HTMLElement, MouseEvent> | React.KeyboardEvent<HTMLElement> | undefined) => {
-        fetchInstance(selectedInstance.instanceId);
+        fetchSelectedInstance(selectedInstance.instanceId);
       }
     },
-
-
-
+    {
+      name: 'Purge',
+      key: 'Purge',
+      iconProps: { iconName: 'Delete' },
+      onClick: (ev?: React.MouseEvent<HTMLElement, MouseEvent> | React.KeyboardEvent<HTMLElement> | undefined) => {
+        purgeSelectedInstance(selectedInstance.instanceId)
+      }
+    },
+    {
+      name: 'Terminate',
+      key: 'Terminate',
+      iconProps: { iconName: 'Stop' },
+      onClick: (ev?: React.MouseEvent<HTMLElement, MouseEvent> | React.KeyboardEvent<HTMLElement> | undefined) => {
+      }
+    },
+    {
+      name: 'Suspend',
+      key: 'Suspend',
+      iconProps: { iconName: 'Pause' },
+      onClick: (ev?: React.MouseEvent<HTMLElement, MouseEvent> | React.KeyboardEvent<HTMLElement> | undefined) => {
+      }
+    },
+    {
+      name: 'Resume',
+      key: 'Resume',
+      iconProps: { iconName: 'Play' },
+      onClick: (ev?: React.MouseEvent<HTMLElement, MouseEvent> | React.KeyboardEvent<HTMLElement> | undefined) => {
+      }
+    },
   ]
   const historyCmdsFar: ICommandBarItemProps[] = [
     {
       name: 'Back',
-      minWidth: 100,
       key: 'EventType',
-      fieldName: 'EventType',
-      isResizable: true,
       iconProps: { iconName: 'Back' },
       onClick: (ev?: React.MouseEvent<HTMLElement, MouseEvent> | React.KeyboardEvent<HTMLElement> | undefined) => {
-           stopInstanceInterval();
-           setSelectedInstance(null);
+        stopSelectedInstanceInterval();
+        setSelectedInstance(null);
       }
     },
- 
-
-
   ]
+
   const {
     baseUrl,
     taskHub,
     systemKey, httpClient
 
   } = props;
-
-
-
-  useEffect(() => {
-
-    const fetchData = async () => {
-      const url = `${baseUrl}/runtime/webhooks/durableTask/instances?taskHub=${taskHub}&code=${systemKey}`;
-      props.httpClient.fetch(url, HttpClient.configurations.v1, {
-        headers: { "Accept": "application/json" }
+  //#endregion data 
+  //#region IO
+  const fetchInstancesData = async () => {
+    const url = `${baseUrl}/runtime/webhooks/durableTask/instances?taskHub=${taskHub}&code=${systemKey}`;
+    props.httpClient.fetch(url, HttpClient.configurations.v1, {
+      headers: { "Accept": "application/json" }
+    })
+      .then(resp => {
+        return resp.json()
       })
-        .then(resp => {
+      .then(instances => {
+        setInstances(orderBy(instances, 'createdTime', 'desc'));
+      })
+      .catch(e => {
+        debugger;
+      })
+  }
+  function purgeSelectedInstance(instanceId: string) {
+    const url = `${baseUrl}/runtime/webhooks/durableTask/instances/${instanceId}?taskHub=${taskHub}&code=${systemKey}&showHistory=true&showHistoryOutput=true&showInput=true`;
+    httpClient.fetch(url, HttpClient.configurations.v1, {
+      method: "DELETE",
+      headers: { "Accept": "application/json" }
+    })
+      .then(resp => {
+        setSelectedInstance(null);
+        fetchInstancesData();
+      })
+      .catch(e => {
+        debugger;
+      });
+  }
+  function fetchSelectedInstance(instanceId: string) {
+    const url = `${baseUrl}/runtime/webhooks/durableTask/instances/${instanceId}?taskHub=${taskHub}&code=${systemKey}&showHistory=true&showHistoryOutput=true&showInput=true`;
+    httpClient.fetch(url, HttpClient.configurations.v1, {
+      headers: { "Accept": "application/json" }
+    })
+      .then(resp => {
+        return resp.json()
+      })
+      .then(instance => {
+        setSelectedInstance(instance);
+      })
+      .catch(e => {
+        debugger;
+      });
+  }
+  //#endregion IO
 
-          resp.json().then(instances => {
-            setInstances(orderBy(instances, 'createdTime', 'desc'));
-          }).catch(e => {
-            debugger;
-          })
-
-        })
-        .catch(e => {
-          debugger;
-        })
-    }
-
-    fetchData();
-
-  }, [])
-
-  
   return (
     <section>
 
       {selectedInstance &&
         <div>
           <CommandBar items={historyCmds} farItems={historyCmdsFar} />
-        
+
           <div className={styles.grid}>
 
             <TextField label='Instance Id' value={selectedInstance.instanceId}></TextField>
@@ -397,34 +535,18 @@ useEffect(() => {
       }
 
       {!selectedInstance &&
-        <DetailsList
-          items={instances}
-          columns={instancesCols}
+        <div>
+          <CommandBar items={instanceCmds} />
 
-        />
+          <DetailsList
+            items={instances}
+            columns={instancesCols}
+
+          />
+        </div>
       }
     </section>
   );
 
-  function fetchInstance(instanceId: string) {
-    const url = `${baseUrl}/runtime/webhooks/durableTask/instances/${instanceId}?taskHub=${taskHub}&code=${systemKey}&showHistory=true&showHistoryOutput=true&showInput=true`;
-    httpClient.fetch(url, HttpClient.configurations.v1, {
-      headers: { "Accept": "application/json" }
-    })
-      .then(resp => {
-
-
-        resp.json().then(instance => {
-      
-          setSelectedInstance(instance);
-        }).catch(e => {
-          debugger;
-        });
-
-      })
-      .catch(e => {
-        debugger;
-      });
-  }
 }
 

@@ -22,7 +22,10 @@
     "description": { "default": "Durable Functions Status description" },
     "officeFabricIconFontName": "Page",
     "properties": {
-      "description": "Durable Functions Status"
+      "baseUrl": "",
+      "taskHub": "",
+      "systemKey": ""
+      
     }
   }]
 }

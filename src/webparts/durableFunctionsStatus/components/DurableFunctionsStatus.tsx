@@ -1,12 +1,12 @@
 import * as React from 'react';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { IHistoryEvent, IInstance } from '../../../model'
 import styles from './DurableFunctionsStatus.module.scss';
 import { IDurableFunctionsStatusProps } from './IDurableFunctionsStatusProps';
 import { escape } from '@microsoft/sp-lodash-subset';
 import { HttpClient } from '@microsoft/sp-http'
 import { orderBy, result, sortBy } from 'lodash';
-import { Button, DetailsList, Fabric, IColumn, IDetailsRowProps, Link, PrimaryButton, TextField, DetailsRow } from 'office-ui-fabric-react';
+import { Button, DetailsList, Fabric, IColumn, IDetailsRowProps, Link, PrimaryButton, TextField, DetailsRow, CommandBar, ICommandBarItemProps } from 'office-ui-fabric-react';
 import { render } from 'react-dom';
 
 import { format, formatDuration, intervalToDuration } from 'date-fns';
@@ -15,7 +15,35 @@ import { utcToZonedTime } from 'date-fns-tz';
 export default function DurableFunctionsStatus(props: IDurableFunctionsStatusProps): JSX.Element {
   const [selectedInstance, setSelectedInstance] = React.useState<IInstance>(null);
   const [instances, setInstances] = useState<Array<IInstance>>([])
+  const [refreshSeconds, setRefreshSeconds] = useState<number>(null);
+  const [refreshDescription, setRefreshDescription] = useState<string>(null);
+  const instanceIntervalRef = useRef<number | null>(null);
+  //* See https://www.kindacode.com/article/react-typescript-setinterval/
+// Start the interval
+const startInstanceInterval = (seconds:number) => {
+  if (instanceIntervalRef.current !== null) stopInstanceInterval();
+  instanceIntervalRef.current = window.setInterval(() => {
+    fetchInstance(selectedInstance.instanceId)
+  }, seconds*1000);
+};
 
+// Stop the interval
+const stopInstanceInterval = () => {
+  if (instanceIntervalRef.current) {
+    window.clearInterval(instanceIntervalRef.current);
+    instanceIntervalRef.current = null;
+  }
+};
+
+// Use the useEffect hook to cleanup the interval when the component unmounts
+useEffect(() => {
+  // here's the cleanup function
+  return () => {
+    if (instanceIntervalRef.current !== null) {
+      window.clearInterval(instanceIntervalRef.current);
+    }
+  };
+}, []);
   const renderInstanceId = (item?: any, index?: number, column?: IColumn) => {
     return <Link onClick={(ev: React.MouseEvent<unknown>) => {
       fetchInstance(item.instanceId);
@@ -36,7 +64,7 @@ export default function DurableFunctionsStatus(props: IDurableFunctionsStatusPro
     }
   };
   const renderHistoryName = (item?: IHistoryEvent, index?: number, column?: IColumn) => {
-    debugger;
+
     if (item.EventType === "TaskScheduled") {
       return item.Name;
     }
@@ -223,6 +251,91 @@ export default function DurableFunctionsStatus(props: IDurableFunctionsStatusPro
 
 
   ]
+  const historyCmds: ICommandBarItemProps[] = [
+
+    {
+      name: `Auto Refresh ${refreshDescription?refreshDescription:''}`,
+      minWidth: 200,
+      key: 'Name',
+      fieldName: 'Name',
+      checked:refreshSeconds !==null,
+      canCheck:true,
+
+      isResizable: true,
+      subMenuProps: {
+        items: [
+          {
+            name: "Never", key: "never",
+            onClick: () => {
+              setRefreshSeconds(null);
+            
+              setRefreshDescription(null);
+            }
+          },
+          {
+            name: "Every 5 Seconds", key: "Every 5 Seconds",
+            checked:refreshSeconds===5,
+            canCheck:true,
+            onClick: () => {
+              setRefreshSeconds(5);
+              startInstanceInterval(5);
+              setRefreshDescription("(Every 5 Seconds)")
+            }
+          },
+          { name: "Every 30 Seconds", key: "Every 30 Seconds",
+          checked:refreshSeconds===30,
+          canCheck:true,
+
+          onClick: () => {
+            setRefreshSeconds(30);
+            startInstanceInterval(30);
+            setRefreshDescription("(Every 30 Seconds)")
+          } },
+          { name: "Every Minute", key: "Every Minute",
+          checked:refreshSeconds===60,
+          canCheck:true,
+
+          onClick: () => {
+            setRefreshSeconds(60);
+            startInstanceInterval(60);
+            setRefreshDescription("(Every Minute)")
+          } }
+
+        ]
+      }
+    },
+    {
+      name: 'Refresh',
+      minWidth: 110,
+      key: 'ScheduledTime',
+      fieldName: 'ScheduledTime',
+      iconProps: { iconName: 'Refresh' },
+      isResizable: true,
+      onClick: (ev?: React.MouseEvent<HTMLElement, MouseEvent> | React.KeyboardEvent<HTMLElement> | undefined) => {
+        fetchInstance(selectedInstance.instanceId);
+      }
+    },
+
+
+
+  ]
+  const historyCmdsFar: ICommandBarItemProps[] = [
+    {
+      name: 'Back',
+      minWidth: 100,
+      key: 'EventType',
+      fieldName: 'EventType',
+      isResizable: true,
+      iconProps: { iconName: 'Back' },
+      onClick: (ev?: React.MouseEvent<HTMLElement, MouseEvent> | React.KeyboardEvent<HTMLElement> | undefined) => {
+           stopInstanceInterval();
+           setSelectedInstance(null);
+      }
+    },
+ 
+
+
+  ]
   const {
     baseUrl,
     taskHub,
@@ -257,18 +370,14 @@ export default function DurableFunctionsStatus(props: IDurableFunctionsStatusPro
 
   }, [])
 
-  debugger;
+  
   return (
     <section>
 
       {selectedInstance &&
         <div>
-          <PrimaryButton onClick={(e) => {
-            setSelectedInstance(null);
-          }}>Back</PrimaryButton>
-          <PrimaryButton onClick={(e) => {
-            fetchInstance(selectedInstance.instanceId);
-          }}>Refresh</PrimaryButton>
+          <CommandBar items={historyCmds} farItems={historyCmdsFar} />
+        
           <div className={styles.grid}>
 
             <TextField label='Instance Id' value={selectedInstance.instanceId}></TextField>
@@ -306,7 +415,7 @@ export default function DurableFunctionsStatus(props: IDurableFunctionsStatusPro
 
 
         resp.json().then(instance => {
-          debugger;
+      
           setSelectedInstance(instance);
         }).catch(e => {
           debugger;

@@ -22,9 +22,9 @@
     "description": { "default": "Durable Functions Status description" },
     "officeFabricIconFontName": "Page",
     "properties": {
-      "baseUrl": "",
-      "taskHub": "",
-      "systemKey": ""
+      "baseUrl": "https://rgoveloadgdd2.azurewebsites.net",
+      "taskHub": "rgoveLoadGDD2",
+      "systemKey": "nrEXAt9P9BRJZhEXafQyY6oOyxNjaxlVH9jRiwp8SZpcAzFuYHNv6A=="
       
     }
   }]

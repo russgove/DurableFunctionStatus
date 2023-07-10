@@ -290,9 +290,20 @@ export default function DurableFunctionsStatus(props: IDurableFunctionsStatusPro
     },
     {
       name: 'Start New Orchestration',
-      key: 'Terminate',
+      key: 'New',
       iconProps: { iconName: 'Add' },
-      onClick: (ev?: React.MouseEvent<HTMLElement, MouseEvent> | React.KeyboardEvent<HTMLElement> | undefined) => {
+
+      subMenuProps: {
+        items: props.orchestrationNames.map((orchName => {
+          return {
+            name: orchName,
+            key: orchName,
+            onClick: (ev?: React.MouseEvent<HTMLElement, MouseEvent> | React.KeyboardEvent<HTMLElement> | undefined) => {
+              startOrchestration(orchName);
+              fetchInstancesData();
+            }
+          }
+        }))
       }
     },
   ]
@@ -424,22 +435,33 @@ export default function DurableFunctionsStatus(props: IDurableFunctionsStatusPro
     {
       name: 'Terminate',
       key: 'Terminate',
+      disabled: (selectedInstance && (selectedInstance.runtimeStatus === "Terminated" || selectedInstance.runtimeStatus === "Completed")),
       iconProps: { iconName: 'Stop' },
       onClick: (ev?: React.MouseEvent<HTMLElement, MouseEvent> | React.KeyboardEvent<HTMLElement> | undefined) => {
+        debugger;
+        terminateSelectedInstance(selectedInstance.instanceId)
       }
     },
     {
       name: 'Suspend',
       key: 'Suspend',
       iconProps: { iconName: 'Pause' },
+      disabled: (selectedInstance && (selectedInstance.runtimeStatus === "Terminated" || selectedInstance.runtimeStatus === "Completed" || selectedInstance.runtimeStatus === "Suspended" )),
+    
       onClick: (ev?: React.MouseEvent<HTMLElement, MouseEvent> | React.KeyboardEvent<HTMLElement> | undefined) => {
+        debugger;
+        suspendSelectedInstance(selectedInstance.instanceId)
       }
     },
     {
       name: 'Resume',
       key: 'Resume',
       iconProps: { iconName: 'Play' },
+      disabled: (selectedInstance && (selectedInstance.runtimeStatus !== "Suspended")),
+    
       onClick: (ev?: React.MouseEvent<HTMLElement, MouseEvent> | React.KeyboardEvent<HTMLElement> | undefined) => {
+        debugger;
+        resumeSelectedInstance(selectedInstance.instanceId)
       }
     },
   ]
@@ -479,13 +501,105 @@ export default function DurableFunctionsStatus(props: IDurableFunctionsStatusPro
       })
   }
   function purgeSelectedInstance(instanceId: string) {
-    const url = `${baseUrl}/runtime/webhooks/durableTask/instances/${instanceId}?taskHub=${taskHub}&code=${systemKey}&showHistory=true&showHistoryOutput=true&showInput=true`;
+    const url = `${baseUrl}/runtime/webhooks/durableTask/instances/${instanceId}?taskHub=${taskHub}&code=${systemKey}`;
     httpClient.fetch(url, HttpClient.configurations.v1, {
       method: "DELETE",
       headers: { "Accept": "application/json" }
     })
       .then(resp => {
         setSelectedInstance(null);
+        fetchInstancesData();
+      })
+      .catch(e => {
+        debugger;
+      });
+  }
+  function terminateSelectedInstance(instanceId: string) {
+    const url = `${baseUrl}/runtime/webhooks/durableTask/instances/${instanceId}/terminate?taskHub=${taskHub}&code=${systemKey}`;
+    httpClient.fetch(url, HttpClient.configurations.v1, {
+      method: "Post",
+      headers: { "Accept": "application/json" }
+    })
+      .then(resp => {
+        switch (resp.status) {
+          case 404:
+            alert("This instance was not found");
+            break;
+          case 410:
+            alert("This instance has completed or failed");
+            break;
+        }
+      })
+      .then(() => {
+        setTimeout(() => {
+          fetchSelectedInstance(selectedInstance.instanceId);
+        }, 500)
+
+      })
+      .catch(e => {
+        debugger;
+      });
+  }
+  function suspendSelectedInstance(instanceId: string) {
+    const url = `${baseUrl}/runtime/webhooks/durableTask/instances/${instanceId}/suspend?taskHub=${taskHub}&code=${systemKey}`;
+    httpClient.fetch(url, HttpClient.configurations.v1, {
+      method: "Post",
+      headers: { "Accept": "application/json" }
+    })
+      .then(resp => {
+        switch (resp.status) {
+          case 404:
+            alert("This instance was not found");
+            break;
+          case 410:
+            alert("This instance has completed or failed");
+            break;
+        }
+      })
+      .then(() => {
+        setTimeout(() => {
+          fetchSelectedInstance(selectedInstance.instanceId);
+        }, 500)
+
+      })
+      .catch(e => {
+        debugger;
+      });
+  }
+  function resumeSelectedInstance(instanceId: string) {
+    const url = `${baseUrl}/runtime/webhooks/durableTask/instances/${instanceId}/resume?taskHub=${taskHub}&code=${systemKey}`;
+    httpClient.fetch(url, HttpClient.configurations.v1, {
+      method: "Post",
+      headers: { "Accept": "application/json" }
+    })
+      .then(resp => {
+        switch (resp.status) {
+          case 404:
+            alert("This instance was not found");
+            break;
+          case 410:
+            alert("This instance has completed or failed");
+            break;
+        }
+      })
+      .then(() => {
+        setTimeout(() => {
+          fetchSelectedInstance(selectedInstance.instanceId);
+        }, 500)
+
+      })
+      .catch(e => {
+        debugger;
+      });
+  }
+  function startOrchestration(orchestrationName: string) {
+    const url = `${baseUrl}/runtime/webhooks/durableTask/orchestrators/${orchestrationName}?taskHub=${taskHub}&code=${systemKey}`;
+
+    httpClient.fetch(url, HttpClient.configurations.v1, {
+      method: "POST",
+      headers: { "Accept": "application/json" }
+    })
+      .then(resp => {
         fetchInstancesData();
       })
       .catch(e => {
@@ -508,45 +622,52 @@ export default function DurableFunctionsStatus(props: IDurableFunctionsStatusPro
       });
   }
   //#endregion IO
+  try {
+    return (
+      <section>
 
-  return (
-    <section>
+        {selectedInstance &&
+          <div>
+            <CommandBar items={historyCmds} farItems={historyCmdsFar} />
 
-      {selectedInstance &&
-        <div>
-          <CommandBar items={historyCmds} farItems={historyCmdsFar} />
+            <div className={styles.grid}>
 
-          <div className={styles.grid}>
+              <TextField label='Instance Id' value={selectedInstance.instanceId}></TextField>
+              <TextField label='Name' value={selectedInstance.name}></TextField>
+              <TextField label='Created Time' value={renderDate(selectedInstance.createdTime)}></TextField>
+              <TextField label='Last Updated Time' value={renderDate(selectedInstance.lastUpdatedTime)}></TextField>
+              <TextField label='Runtime Status' value={selectedInstance.runtimeStatus}></TextField>
+              <TextField label='Custom Status' value={selectedInstance.customStatus}></TextField>
+              <TextField className={styles.gridFullWidth} label='Output' value={selectedInstance.output}
+                multiline={true}
+              ></TextField>
 
-            <TextField label='Instance Id' value={selectedInstance.instanceId}></TextField>
-            <TextField label='Name' value={selectedInstance.name}></TextField>
-            <TextField label='Created Time' value={renderDate(selectedInstance.createdTime)}></TextField>
-            <TextField label='Last Updated Time' value={renderDate(selectedInstance.lastUpdatedTime)}></TextField>
-            <TextField label='Runtime Status' value={selectedInstance.runtimeStatus}></TextField>
-            <TextField label='Custom Status' value={selectedInstance.customStatus}></TextField>
-            <TextField className={styles.gridFullWidth} label='Output' value={selectedInstance.output}
-              multiline={true}
-            ></TextField>
-
+            </div>
+            <DetailsList items={selectedInstance.historyEvents} columns={historyCols} />
           </div>
-          <DetailsList items={selectedInstance.historyEvents} columns={historyCols} />
-        </div>
 
-      }
+        }
 
-      {!selectedInstance &&
-        <div>
-          <CommandBar items={instanceCmds} />
+        {!selectedInstance &&
+          <div>
+            <CommandBar items={instanceCmds} />
 
-          <DetailsList
-            items={instances}
-            columns={instancesCols}
+            <DetailsList
+              items={instances}
+              columns={instancesCols}
 
-          />
-        </div>
-      }
-    </section>
-  );
-
+            />
+          </div>
+        }
+      </section>
+    );
+  }
+  catch (e) {
+    debugger;
+    return (<div>
+      Error:
+      {e}
+    </div>)
+  }
 }
 

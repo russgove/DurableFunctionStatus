@@ -16,6 +16,7 @@ export interface IDurableFunctionsStatusWebPartProps {
   baseUrl: string;
   taskHub:string;
   systemKey:string;
+  orchestrationNames:string;
 }
 
 export default class DurableFunctionsStatusWebPart extends BaseClientSideWebPart<IDurableFunctionsStatusWebPartProps> {
@@ -27,7 +28,8 @@ export default class DurableFunctionsStatusWebPart extends BaseClientSideWebPart
         baseUrl: this.properties.baseUrl,
         taskHub: this.properties.taskHub,
         systemKey: this.properties.systemKey,
-        httpClient:this.context.httpClient
+        httpClient:this.context.httpClient,
+        orchestrationNames:this.properties.orchestrationNames.split('\n')
       }
     );
 
@@ -111,6 +113,9 @@ return Promise.resolve();
                 }),
                 PropertyPaneTextField('systemKey', {
                   label: strings.SystemKeyFieldLabel
+                }),
+                PropertyPaneTextField('orchestrationNames', {
+                  label: strings.OrchestrationNamesFieldLabel,multiline:true
                 }),
                 
                 

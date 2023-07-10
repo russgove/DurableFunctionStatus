@@ -4,6 +4,7 @@ declare interface IDurableFunctionsStatusWebPartStrings {
   BaseUrlFieldLabel: string;
   TaskHubFieldLabel: string;
   SystemKeyFieldLabel: string;
+  OrchestrationNamesFieldLabel: string;
   AppLocalEnvironmentSharePoint: string;
   AppLocalEnvironmentTeams: string;
   AppLocalEnvironmentOffice: string;

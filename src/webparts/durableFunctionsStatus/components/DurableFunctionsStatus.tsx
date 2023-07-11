@@ -4,13 +4,14 @@ import { IHistoryEvent, IInstance } from '../../../model'
 import styles from './DurableFunctionsStatus.module.scss';
 import { IDurableFunctionsStatusProps } from './IDurableFunctionsStatusProps';
 import { escape } from '@microsoft/sp-lodash-subset';
-import { HttpClient } from '@microsoft/sp-http'
-import { orderBy, result, sortBy } from 'lodash';
-import { Button, DetailsList, Fabric, IColumn, IDetailsRowProps, Link, PrimaryButton, TextField, DetailsRow, CommandBar, ICommandBarItemProps } from 'office-ui-fabric-react';
+import { HttpClient, HttpClientResponse } from '@microsoft/sp-http'
+import { forEach, groupBy, orderBy, result, sortBy } from 'lodash';
+import { Button, DetailsList, Fabric, IColumn, IDetailsRowProps, Link, PrimaryButton, TextField, DetailsRow, CommandBar, ICommandBarItemProps, MessageBar, MessageBarType } from 'office-ui-fabric-react';
 import { render } from 'react-dom';
 
 import { format, formatDuration, intervalToDuration } from 'date-fns';
 import { utcToZonedTime } from 'date-fns-tz';
+
 
 export default function DurableFunctionsStatus(props: IDurableFunctionsStatusProps): JSX.Element {
   //#region "Hooks"
@@ -22,7 +23,11 @@ export default function DurableFunctionsStatus(props: IDurableFunctionsStatusPro
   const [refreshInstancesSeconds, setRefreshInstancesSeconds] = useState<number>(null);
   const [refreshInstancesDescription, setRefreshInstancesDescription] = useState<string>(null);
   const instancesIntervalRef = useRef<number | null>(null);
-  useEffect(() => { fetchInstancesData(); }, [])
+  const [alertMessage, setAlertMessage] = useState<{ message: string, type: MessageBarType } | null>(null);
+  useEffect(() => {
+    fetchInstancesData();
+
+  }, []);
 
   //#endregion "Hooks"
 
@@ -72,6 +77,17 @@ export default function DurableFunctionsStatus(props: IDurableFunctionsStatusPro
 
   //#endregion Timer functions
   //#region Render methods
+
+  const getUniqueStatuses = (): Array<string> => {
+    debugger;
+    var stati = []
+    const groups = groupBy(instances, 'runtimeStatus')
+    for (const group in groups) {
+      stati.push(group)
+    }
+    return stati;
+  }
+
 
   const renderInstanceId = (item?: any, index?: number, column?: IColumn) => {
     return <Link onClick={(ev: React.MouseEvent<unknown>) => {
@@ -131,6 +147,18 @@ export default function DurableFunctionsStatus(props: IDurableFunctionsStatusPro
       //return formatDuration(intervalToDuration({ start: new Date(item.createdTime), end: new Date(item.lastUpdatedTime) }))
     }
     // return format(utcToZonedTime(item[column.fieldName], Intl.DateTimeFormat().resolvedOptions().timeZone), 'yyyy-MM-dd HH:mm:ss(XX)');
+
+  };
+  const renderOutput = (item?: any, index?: number, column?: IColumn) => {
+
+
+    debugger;
+    if (item[column.fieldName]) {
+      return item[column.fieldName].toString();
+    } 
+    else {
+      return null;
+    }
 
   };
   const renderActivityDuration = (item?: any, index?: number, column?: IColumn) => {
@@ -220,6 +248,7 @@ export default function DurableFunctionsStatus(props: IDurableFunctionsStatusPro
       key: 'output',
       fieldName: 'output',
       isResizable: true,
+      onRender: renderOutput,
     },
 
   ]
@@ -285,7 +314,16 @@ export default function DurableFunctionsStatus(props: IDurableFunctionsStatusPro
       name: 'Purge History',
       key: 'Purge',
       iconProps: { iconName: 'Delete' },
-      onClick: (ev?: React.MouseEvent<HTMLElement, MouseEvent> | React.KeyboardEvent<HTMLElement> | undefined) => {
+      subMenuProps: {
+        items: getUniqueStatuses().map(status => {
+          return {
+            name: status,
+            key: status,
+            onClick: (ev?: React.MouseEvent<HTMLElement, MouseEvent> | React.KeyboardEvent<HTMLElement> | undefined) => {
+              purgeByStatus(status);
+            }
+          }
+        })
       }
     },
     {
@@ -439,15 +477,16 @@ export default function DurableFunctionsStatus(props: IDurableFunctionsStatusPro
       iconProps: { iconName: 'Stop' },
       onClick: (ev?: React.MouseEvent<HTMLElement, MouseEvent> | React.KeyboardEvent<HTMLElement> | undefined) => {
         debugger;
-        terminateSelectedInstance(selectedInstance.instanceId)
+        terminateSelectedInstance(selectedInstance.instanceId);
+        fetchInstancesData()
       }
     },
     {
       name: 'Suspend',
       key: 'Suspend',
       iconProps: { iconName: 'Pause' },
-      disabled: (selectedInstance && (selectedInstance.runtimeStatus === "Terminated" || selectedInstance.runtimeStatus === "Completed" || selectedInstance.runtimeStatus === "Suspended" )),
-    
+      disabled: (selectedInstance && (selectedInstance.runtimeStatus === "Terminated" || selectedInstance.runtimeStatus === "Completed" || selectedInstance.runtimeStatus === "Suspended")),
+
       onClick: (ev?: React.MouseEvent<HTMLElement, MouseEvent> | React.KeyboardEvent<HTMLElement> | undefined) => {
         debugger;
         suspendSelectedInstance(selectedInstance.instanceId)
@@ -458,7 +497,7 @@ export default function DurableFunctionsStatus(props: IDurableFunctionsStatusPro
       key: 'Resume',
       iconProps: { iconName: 'Play' },
       disabled: (selectedInstance && (selectedInstance.runtimeStatus !== "Suspended")),
-    
+
       onClick: (ev?: React.MouseEvent<HTMLElement, MouseEvent> | React.KeyboardEvent<HTMLElement> | undefined) => {
         debugger;
         resumeSelectedInstance(selectedInstance.instanceId)
@@ -490,7 +529,7 @@ export default function DurableFunctionsStatus(props: IDurableFunctionsStatusPro
     props.httpClient.fetch(url, HttpClient.configurations.v1, {
       headers: { "Accept": "application/json" }
     })
-      .then(resp => {
+      .then((resp: HttpClientResponse) => {
         return resp.json()
       })
       .then(instances => {
@@ -506,9 +545,30 @@ export default function DurableFunctionsStatus(props: IDurableFunctionsStatusPro
       method: "DELETE",
       headers: { "Accept": "application/json" }
     })
-      .then(resp => {
+      .then((resp: HttpClientResponse) => {
         setSelectedInstance(null);
         fetchInstancesData();
+      })
+      .catch(e => {
+        debugger;
+      });
+  }
+  function purgeByStatus(status: string) {
+    const url = `${baseUrl}/runtime/webhooks/durableTask/instances?taskHub=${taskHub}&code=${systemKey}&createdTimeFrom=2023-07-10&runtimeStatus=${status}`;
+    httpClient.fetch(url, HttpClient.configurations.v1, {
+      method: "DELETE",
+      headers: { "Accept": "application/json" }
+    })
+      .then((resp: HttpClientResponse) => {
+        return resp.json()
+
+      }).then(e => {
+        debugger;
+        alert(`${e.instancesDeleted} instances deleted.`)
+        setTimeout(() => {
+          fetchInstancesData();
+        }, 500)
+
       })
       .catch(e => {
         debugger;
@@ -520,7 +580,7 @@ export default function DurableFunctionsStatus(props: IDurableFunctionsStatusPro
       method: "Post",
       headers: { "Accept": "application/json" }
     })
-      .then(resp => {
+      .then((resp: HttpClientResponse) => {
         switch (resp.status) {
           case 404:
             alert("This instance was not found");
@@ -546,7 +606,7 @@ export default function DurableFunctionsStatus(props: IDurableFunctionsStatusPro
       method: "Post",
       headers: { "Accept": "application/json" }
     })
-      .then(resp => {
+      .then((resp: HttpClientResponse) => {
         switch (resp.status) {
           case 404:
             alert("This instance was not found");
@@ -572,7 +632,7 @@ export default function DurableFunctionsStatus(props: IDurableFunctionsStatusPro
       method: "Post",
       headers: { "Accept": "application/json" }
     })
-      .then(resp => {
+      .then((resp: HttpClientResponse) => {
         switch (resp.status) {
           case 404:
             alert("This instance was not found");
@@ -594,13 +654,20 @@ export default function DurableFunctionsStatus(props: IDurableFunctionsStatusPro
   }
   function startOrchestration(orchestrationName: string) {
     const url = `${baseUrl}/runtime/webhooks/durableTask/orchestrators/${orchestrationName}?taskHub=${taskHub}&code=${systemKey}`;
-
+    debugger;
     httpClient.fetch(url, HttpClient.configurations.v1, {
       method: "POST",
       headers: { "Accept": "application/json" }
     })
-      .then(resp => {
+      .then((resp: HttpClientResponse) => {
+        return resp.json()
+
+      })
+      .then((msg) => {
+        debugger;
+        setAlertMessage({ message: `Instance ${msg.id} started.`, type: MessageBarType.success });
         fetchInstancesData();
+
       })
       .catch(e => {
         debugger;
@@ -611,7 +678,7 @@ export default function DurableFunctionsStatus(props: IDurableFunctionsStatusPro
     httpClient.fetch(url, HttpClient.configurations.v1, {
       headers: { "Accept": "application/json" }
     })
-      .then(resp => {
+      .then((resp: HttpClientResponse) => {
         return resp.json()
       })
       .then(instance => {
@@ -622,52 +689,51 @@ export default function DurableFunctionsStatus(props: IDurableFunctionsStatusPro
       });
   }
   //#endregion IO
-  try {
-    return (
-      <section>
+  //const messages:Array<MessageBar>=[]
+  return (
+    <section>
+      {
+        alertMessage &&
+        <div>
+          <MessageBar messageBarType={alertMessage.type} onDismiss={() => { setAlertMessage(null) }}> {alertMessage.message}</MessageBar>
+        </div>
+      }
 
-        {selectedInstance &&
-          <div>
-            <CommandBar items={historyCmds} farItems={historyCmdsFar} />
+      {selectedInstance &&
+        <div>
+          <CommandBar items={historyCmds} farItems={historyCmdsFar} />
 
-            <div className={styles.grid}>
+          <div className={styles.grid}>
 
-              <TextField label='Instance Id' value={selectedInstance.instanceId}></TextField>
-              <TextField label='Name' value={selectedInstance.name}></TextField>
-              <TextField label='Created Time' value={renderDate(selectedInstance.createdTime)}></TextField>
-              <TextField label='Last Updated Time' value={renderDate(selectedInstance.lastUpdatedTime)}></TextField>
-              <TextField label='Runtime Status' value={selectedInstance.runtimeStatus}></TextField>
-              <TextField label='Custom Status' value={selectedInstance.customStatus}></TextField>
-              <TextField className={styles.gridFullWidth} label='Output' value={selectedInstance.output}
-                multiline={true}
-              ></TextField>
+            <TextField label='Instance Id' value={selectedInstance.instanceId}></TextField>
+            <TextField label='Name' value={selectedInstance.name}></TextField>
+            <TextField label='Created Time' value={renderDate(selectedInstance.createdTime)}></TextField>
+            <TextField label='Last Updated Time' value={renderDate(selectedInstance.lastUpdatedTime)}></TextField>
+            <TextField label='Runtime Status' value={selectedInstance.runtimeStatus}></TextField>
+            <TextField label='Custom Status' value={selectedInstance.customStatus}></TextField>
+            <TextField className={styles.gridFullWidth} label='Output' value={selectedInstance.output}
+              multiline={true}
+            ></TextField>
 
-            </div>
-            <DetailsList items={selectedInstance.historyEvents} columns={historyCols} />
           </div>
+          <DetailsList items={selectedInstance.historyEvents} columns={historyCols} />
+        </div>
 
-        }
+      }
 
-        {!selectedInstance &&
-          <div>
-            <CommandBar items={instanceCmds} />
+      {!selectedInstance &&
+        <div>
+          <CommandBar items={instanceCmds} />
 
-            <DetailsList
-              items={instances}
-              columns={instancesCols}
+          <DetailsList
+            items={instances}
+            columns={instancesCols}
 
-            />
-          </div>
-        }
-      </section>
-    );
-  }
-  catch (e) {
-    debugger;
-    return (<div>
-      Error:
-      {e}
-    </div>)
-  }
+          />
+        </div>
+      }
+    </section>
+  );
 }
+
 

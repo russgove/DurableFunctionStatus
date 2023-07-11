@@ -24,7 +24,8 @@
     "properties": {
       "baseUrl": "",
       "taskHub": "rgoveLoadGDD2",
-      "systemKey": ""
+      "systemKey": "",
+      "orchestrationNames":"LoadGDDDataTodayOrchestrator"
       
     }
   }]
